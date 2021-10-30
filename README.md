@@ -8,7 +8,6 @@
 Animated toast message component for React Native.
 
 - Imperative API
-- Keyboard aware
 - Flexible config
 
 ## Install

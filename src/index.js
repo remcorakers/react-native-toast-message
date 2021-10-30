@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Animated, PanResponder, Keyboard } from 'react-native';
+import { Animated, PanResponder } from 'react-native';
 import PropTypes from 'prop-types';
 
 import SuccessToast from './components/success';
@@ -8,7 +8,6 @@ import InfoToast from './components/info';
 import { complement } from './utils/arr';
 import { includeKeys } from './utils/obj';
 import { stylePropType } from './utils/prop-types';
-import { isIOS } from './utils/platform';
 import styles from './styles';
 
 const FRICTION = 8;
@@ -37,7 +36,6 @@ function shouldSetPanResponder(gesture) {
 const getInitialState = ({
   topOffset,
   bottomOffset,
-  keyboardOffset,
   visibilityTime,
   height,
   autoHide,
@@ -47,7 +45,6 @@ const getInitialState = ({
   // layout
   topOffset,
   bottomOffset,
-  keyboardOffset,
   height,
   position,
   type,
@@ -106,8 +103,6 @@ class Toast extends Component {
       inProgress: false,
       isVisible: false,
       animation: new Animated.Value(0),
-      keyboardHeight: 0,
-      keyboardVisible: false,
 
       customProps: {}
     };
@@ -126,55 +121,15 @@ class Toast extends Component {
     });
   }
 
-  componentDidMount() {
-    const noop = {
-      remove: () => {}
-    };
-    this.keyboardDidShowListener = isIOS
-      ? Keyboard.addListener('keyboardDidShow', this.keyboardDidShow)
-      : noop;
-    this.keyboardDidHideListner = isIOS
-      ? Keyboard.addListener('keyboardDidHide', this.keyboardDidHide)
-      : noop;
-  }
-
-  componentWillUnmount() {
-    this.keyboardDidShowListener.remove();
-    this.keyboardDidHideListner.remove();
-    clearTimeout(this.timer);
-  }
-
-  keyboardDidShow = (e) => {
-    const { isVisible, position } = this.state;
-    this.setState({
-      keyboardHeight: e.endCoordinates.height,
-      keyboardVisible: true
-    });
-
-    if (isVisible && position === 'bottom') {
-      this.animate({ toValue: 2 });
-    }
-  };
-
-  keyboardDidHide = () => {
-    const { isVisible, position } = this.state;
-    this.setState({
-      keyboardVisible: false
-    });
-    if (isVisible && position === 'bottom') {
-      this.animate({ toValue: 1 });
-    }
-  };
-
   _setState(reducer) {
     return new Promise((resolve) => this.setState(reducer, () => resolve()));
   }
 
   _animateMovement(gesture) {
-    const { position, animation, keyboardVisible } = this.state;
+    const { position, animation } = this.state;
     const { dy } = gesture;
     let value = 1 + dy / 100;
-    const start = keyboardVisible && position === 'bottom' ? 2 : 1;
+    const start =  position === 'bottom' ? 2 : 1;
 
     if (position === 'bottom') {
       value = start - dy / 100;
@@ -186,7 +141,7 @@ class Toast extends Component {
   }
 
   _animateRelease(gesture) {
-    const { position, animation, keyboardVisible } = this.state;
+    const { position, animation } = this.state;
     const { dy, vy } = gesture;
 
     const isBottom = position === 'bottom';
@@ -203,7 +158,7 @@ class Toast extends Component {
       });
     } else {
       Animated.spring(animation, {
-        toValue: keyboardVisible && isBottom ? 2 : 1,
+        toValue:  isBottom ? 2 : 1,
         velocity: vy,
         useNativeDriver: true
       }).start();
@@ -273,8 +228,8 @@ class Toast extends Component {
   }
 
   animateShow = () => {
-    const { keyboardVisible, position } = this.state;
-    const toValue = keyboardVisible && position === 'bottom' ? 2 : 1;
+    const { position } = this.state;
+    const toValue = position === 'bottom' ? 2 : 1;
     return this.animate({ toValue });
   };
 
@@ -342,18 +297,17 @@ class Toast extends Component {
     });
   }
 
-  getBaseStyle(position = 'bottom', keyboardHeight) {
+  getBaseStyle(position = 'bottom') {
     const {
       topOffset,
       bottomOffset,
-      keyboardOffset,
       height,
       animation
     } = this.state;
     const offset = position === 'bottom' ? bottomOffset : topOffset;
 
     // +5 px to completely hide the toast under StatusBar (on Android)
-    const range = [height + 5, -offset, -(keyboardOffset + keyboardHeight)];
+    const range = [height + 5, -offset, -offset];
     const outputRange = position === 'bottom' ? range : complement(range);
 
     const translateY = animation.interpolate({
@@ -376,8 +330,8 @@ class Toast extends Component {
 
   render() {
     const { style } = this.props;
-    const { position, keyboardHeight } = this.state;
-    const baseStyle = this.getBaseStyle(position, keyboardHeight);
+    const { position } = this.state;
+    const baseStyle = this.getBaseStyle(position);
 
     return (
       <Animated.View
@@ -396,7 +350,6 @@ Toast.propTypes = {
   style: stylePropType,
   topOffset: PropTypes.number,
   bottomOffset: PropTypes.number,
-  keyboardOffset: PropTypes.number,
   visibilityTime: PropTypes.number,
   autoHide: PropTypes.bool,
   height: PropTypes.number,
@@ -409,7 +362,6 @@ Toast.defaultProps = {
   style: undefined,
   topOffset: 30,
   bottomOffset: 40,
-  keyboardOffset: 15,
   visibilityTime: 4000,
   autoHide: true,
   height: 60,
